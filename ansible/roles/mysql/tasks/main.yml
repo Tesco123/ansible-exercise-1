@@ -58,7 +58,7 @@
   set_fact:
     docker_mysql_id: '{{ docker_mysql_id_stdout.stdout }}'
 - name:              get mysql container ip
-  shell:             "docker network inspect bridge | jq \'.[0] | .Containers | .[\"{{docker_mysql_id}}\"] | .IPv4Address\' | cut -d \'\"\' -f 2 | cut -d \'/\' -f 1"
+  shell:             "docker network inspect bridge | jq '.[0] | .Containers | .[\"{{docker_mysql_id}}\"] | .IPv4Address' | cut -d '\"' -f 2 | cut -d '/' -f 1"
   register:          docker_mysql_ip_stdout
 - name:              store mysql container ip
   set_fact:
