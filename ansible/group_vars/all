@@ -1,5 +1,8 @@
 
 ---
+# tag to use on ec2 instances
+ec2_tag: cleo_exercise
+
 # Which version of WordPress to deploy
 wp_version: 4.2.4
 wp_sha256sum: 42ca594afc709cbef8528a6096f5a1efe96dcf3164e7ce321e87d57ae015cc82
