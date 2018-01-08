@@ -35,7 +35,7 @@
     state:          present
     login_user:     root
     login_password: '{{ mysql_root_password }}'
-    login_host:     '{{ docker_mysql_ip }}'
+    login_host:     127.0.0.1
   notify:
   - restart php-fpm
   - initialize wordpress
@@ -48,9 +48,9 @@
     priv:           '{{ wp_db_name }}.*:ALL'
     state:          present
     login_user:     root
-    host:           '{{ docker_gateway_ip }}'
+    # host:           localhost
     login_password: '{{ mysql_root_password }}'
-    login_host:     '{{ docker_mysql_ip }}'
+    login_host:     127.0.0.1
   notify:           restart php-fpm
 
 - name:             copy wordpress config file

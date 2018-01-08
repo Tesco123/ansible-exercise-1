@@ -22,8 +22,7 @@ mysql_port: 3306
 mysql_sock_dir: /srv/mysql
 mysql_sock_filename: mysql.sock
 
-docker_gateway_ip: 172.17.0.1
-mysql_login_host: '{{ docker_gateway_ip }}'
+mysql_login_host: '127.0.0.1'
 mysql_host: '127.0.0.1'
 
 nginx_ssl_dir: /etc/nginx/ssl
@@ -47,21 +46,16 @@ aws_dependencies:
   pip:
   - boto
 
-docker_dependencies:
-  yum:
-  - epel-release
-  - python
-  - python-virtualenv
-  - python-pip
-  - docker
-  pip: []
-
 mysql_dependencies:
   yum:
-  - docker
   - jq
+  - gcc
+  - mysql-devel
+  - libselinux-python
+  - MySQL-python
+  - mysql-server
   pip:
-  - docker-py
+  - mysql-python
 
 nginx_dependencies:
   yum:
