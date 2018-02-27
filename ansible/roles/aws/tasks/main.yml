@@ -1,60 +1,64 @@
 ---
-- include_vars:                   secrets.yml
+    - include_vars: 
+        dir: 'vars'
+        files_matching: 'secrets.yml'
 
-- name:                           install dependencies
-  pip:
-    name:                         '{{ item }}'
-    state:                        present
-  with_items:                     '{{ aws_dependencies.pip }}'
+    - name: 'Install dependencies' 
+      pip:
+        name: "{{ item }}"
+        state: present
+      with_items: "{{ aws_dependencies.pip }}"
+      
+      
+    - name: 'spin up ec2 instance'
+      ec2:
+        aws_access_key: '{{ aws_access_key }}'
+        aws_secret_key: '{{ aws_secret_key }}'
+        image: '{{ aws_image }}'
+        instance_type: '{{ aws_instance_type }}'
+        wait: yes
+        region: '{{ aws_region }}'
+        assign_public_ip: yes
+        vpc_subnet_id: '{{ aws_subnet_id }}'
+        exact_count: 1
+        key_name: '{{ aws_key_pair_name }}'
+        instance_tags:
+            class: '{{ ec2_tag }}'
+        count_tag:
+            class: '{{ ec2_tag }}'
+            
 
-- name:                           setup security group
-  set_fact:
-    elb_ingress_definitions:
-      - rule:
-          proto: tcp
-          from_port: 22
-          to_port: 22
-        enabled: true
+    - name: 'Gather ec2 facts'
+      ec2_remote_facts: 
+        aws_access_key: '{{ aws_access_key }}'
+        aws_secret_key: '{{ aws_secret_key }}'
+        region: '{{ aws_region }}'
+        filters:
+            tag:class: '{{ ec2_tag }}'
+            instance-state-name: running
+      register: ec2_info
 
-- name:                           spin up ec2 instance
-  ec2:
-    aws_access_key:               '{{ aws_access_key }}'
-    aws_secret_key:               '{{ aws_secret_key }}'
-    image:                        '{{ aws_image }}'
-    instance_type:                '{{ aws_instance_type }}'
-    wait:                         yes
-    region:                       '{{ aws_region }}'
-    assign_public_ip:             yes
-    vpc_subnet_id:                '{{ aws_subnet_id }}'
-    exact_count:                  1
-    key_name:                     '{{ aws_key_pair_name }}'
-    instance_tags:
-      class:                      '{{ ec2_tag }}'
-    count_tag:
-      class:                      '{{ ec2_tag }}'
+    - name: 'Add inbound rules'
+      ec2_group:
+         vpc_id: '{{ aws_vpc_id }}'
+         region: '{{ aws_region }}' 
+         rules:
+         # 'ports' rule keyword was introduced in version 2.4. It accepts a single port value or a list of values including ranges (from_port-to_port).
+           - proto: tcp
+             ports: 22
+             name: default  
+             group_id: sg-23b54f48 
+             state: present 
+      ignore_errors: yes
 
-- name:                           gather ec2 facts
-  ec2_instance_facts:
-    aws_access_key:               '{{ aws_access_key }}'
-    aws_secret_key:               '{{ aws_secret_key }}'
-    region:                       '{{ aws_region }}'
-    filters:
-      'tag:class':                '{{ ec2_tag }}'
-      instance-state-name:        running
-  register:                       ec2_info
-
-- name:                           add host to aws group
-  add_host:
-    hostname:                     '{{ item.public_ip_address }}'
-    groupname:                    ec2
-    ansible_ssh_private_key_file: '{{ ssh_private_key_file }}'
-  with_items:                     '{{ ec2_info.instances }}'
-
-- name:                           Wait for SSH to come up
-  wait_for:
-    host:                         "{{ item.public_ip_address }}"
-    port:                         22
-    delay:                        0
-    timeout:                      320
-    state:                        started
-  with_items:                     "{{ ec2_info.instances }}"
+    - name: add host to aws group
+      add_host:
+        hostname: '{{ item.public_ip_address }}'
+        groupname: ec2
+        ansible_ssh_private_key_file: '{{ ssh_private_key_file }}'
+      with_items: '{{ ec2_info.instances }}'
+    
+    - name: Test ssh connection with new key
+      local_action: command ssh -o StrictHostKeyChecking=no -i "{{ aws_key_pair_name }}" "{{target_user}}"@"{{ item.public_ip_address }}"
+      with_items: "{{ ec2_info.instances }}"
+      ignore_errors: yes

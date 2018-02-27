@@ -1,42 +1,51 @@
 ---
-- include_vars:      secrets.yml
-- name:              install epel-release
-  yum:               name=epel-release state=latest
-
-- name:              install yum dependencies
-  yum:               name={{ item }} state=present
-  with_items:        '{{ mysql_dependencies.yum }}'
-
-- name:              install pip dependencies
-  pip:               name={{ item }} state=present
-  with_items:        '{{ mysql_dependencies.pip }}'
-
-- name:              Add group "mysql"
-  group:             name=mysql
-
-- name:              Add user "mysql"
-  user:              name=mysql group=mysql home=/srv/mysql/
-
-- name:              copy mycnf
-  template:
-    src:             my.cnf
-    dest:            /etc/my.cnf
-
-- name: Start the mysql services
-  service: name=mysqld state=started enabled=yes
-
-- name: update mysql root password for all root accounts
-  mysql_user: name=root host={{ item }} password={{ mysql_root_password }}
+- name: Ensure mysql dirs exist
+  become: true
+  file:
+    path: "{{ item }}"
+    state: directory
+    recurse: yes
   with_items:
-   - "{{ ansible_hostname }}"
-   - 127.0.0.1
-   - ::1
-   - localhost
-  when: ansible_hostname != 'localhost'
+    - "{{ mysql_backups_dir }}"
+    - "{{ mysql_conf_dir }}"
+    - "{{ mysql_lib_dir }}"
 
-- name: Deletes anonymous MySQL server user for localhost
-  mysql_user: user="" state="absent" login_password="{{ mysql_root_password }}" login_user=root
+- name: Copy mysql config files
+  template:
+    src: "templates/{{ item }}"
+    dest: "{{ mysql_conf_dir }}/{{ item }}"
+    force: yes
+  with_items:
+    - "character-set.cnf"
+    - "sql-mode.cnf"
 
-- name: Removes the MySQL test database
-  sudo: True
-  mysql_db: db=test state=absent login_password="{{ mysql_root_password }}" login_user=root
+- name: Install docker dependencies
+  yum: name={{ item }} state=present
+  with_items: '{{ docker_dependencies.yum }}'
+
+
+- name: Create docker network
+  docker_network:
+    name: "{{ mysql_network }}"
+    state: present
+
+- name: Run mysql 5.7 server
+  docker_container:
+    env:
+      MYSQL_ROOT_PASSWORD: "{{ mysql_root_password }}"
+    image: mysql:5.7
+    labels:
+      traefik.enable: "false"
+    name: "{{ mysql_container_name }}"
+    networks:
+      - name: "{{ mysql_network }}"
+    ports:
+      - "{{ mysql_port }}:3306"
+    pull: true
+    recreate: true
+    restart_policy: always
+    state: "{{ mysql_state }}"
+    volumes:
+      - "{{ mysql_backups_dir }}:/var/backups/mysql"
+      - "{{ mysql_conf_dir }}:/etc/mysql/conf.d"
+      - "{{ mysql_lib_dir }}:/var/lib/mysql"

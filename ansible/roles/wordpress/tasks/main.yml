@@ -2,71 +2,69 @@
 ---
 - include_vars:     secrets.yml
 
-- name:             ensure /srv exists
-  file:             path=/srv owner=root group=root state=directory
+- name: ensure /srv exists
+  file: path=/srv owner=root group=root state=directory
+  ignore_errors: True
 
-- name:             install yum dependencies
-  yum:              name={{ item }} state=present
-  with_items:       '{{ wordpress_dependencies.yum }}'
+- name: install yum dependencies
+  yum: name={{ item }} state=present
+  with_items: '{{ wordpress_dependencies.yum }}'
 
-- name:             install pip dependencies
-  pip:              name={{ item }} state=present
-  with_items:       '{{ wordpress_dependencies.pip }}'
+- name: install pip dependencies
+  pip: name={{ item }} state=present
+  with_items: '{{ wordpress_dependencies.pip }}'
 
-- name:             download wordpress
-  get_url:          url=http://wordpress.org/wordpress-{{ wp_version }}.tar.gz dest={{ wp_install }}-{{ wp_version }}.tar.gz sha256sum={{ wp_sha256sum }}
+- name: download wordpress
+  get_url: url=http://wordpress.org/wordpress-{{ wp_version }}.tar.gz dest={{ wp_install }}-{{ wp_version }}.tar.gz sha256sum={{ wp_sha256sum }}
 
-- name:             extract archive
-  command:          chdir=/srv /bin/tar xvf wordpress-{{ wp_version }}.tar.gz creates={{ wp_install }}
+- name: extract archive
+  command: chdir=/srv /bin/tar xvf wordpress-{{ wp_version }}.tar.gz creates={{ wp_install }}
 
-- name:             add group "wordpress"
-  group:            name=wordpress
+- name: add group "wordpress"
+  group: name=wordpress
 
-- name:             add user "wordpress"
-  user:             name=wordpress group=wordpress home='{{ wp_install }}'
+- name: add user "wordpress"
+  user: name=wordpress group=wordpress home={{ wp_install }}
 
-- name:             Fetch random salts for WordPress config
-  command:          curl https://api.wordpress.org/secret-key/1.1/salt/
-  register:         "wp_salt"
+- name: Fetch random salts for WordPress config
+  command: curl https://api.wordpress.org/secret-key/1.1/salt/
+  register: "wp_salt"
 
-- name:             create wordpress database
+- name: create wordpress database
   mysql_db:
-    name:           '{{ wp_db_name }}'
-    state:          present
-    login_user:     root
-    login_password: '{{ mysql_root_password }}'
-    login_host:     127.0.0.1
+    name: '{{ wp_db_name }}'
+    state: present
+    #code to login to myslq docker container
   notify:
   - restart php-fpm
   - initialize wordpress
-  # Notify weather post creation here
+  - download weather information
+  - create wordpress weather post file
+  - create wordpress weather post
 
-- name:             create wordpress database user
+- name: create wordpress database user
   mysql_user:
-    name:           '{{ wp_db_user }}'
-    password:       '{{ wp_db_password }}'
-    priv:           '{{ wp_db_name }}.*:ALL'
-    state:          present
-    login_user:     root
-    # host:           localhost
-    login_password: '{{ mysql_root_password }}'
-    login_host:     127.0.0.1
+    name: '{{ wp_db_user }}'
+    password: '{{ wp_db_password }}'
+    priv: '{{ wp_db_name }}.*:ALL'
+    state: present
+  #code to login to myslq docker container 
+ notify: restart php-fpm
+
+- name: copy wordpress config file
+  template: src=wp-config.php dest={{ wp_install }}
+  notify: restart php-fpm
+
+- name: copy php-fpm.d/www.conf config file
+  template:  src=www.conf dest=/etc/php-fpm.d/
+  notify: restart php-fpm
+
+- name: change ownership of wordpress installation
+  file: path={{ wp_install }} owner=wordpress group=wordpress state=directory recurse=yes setype=httpd_sys_content_t
   notify:           restart php-fpm
 
-- name:             copy wordpress config file
-  template:         src=wp-config.php dest='{{ wp_install }}'
-  notify:           restart php-fpm
-
-- name:             copy php-fpm.d/www.conf config file
-  template:         src=www.conf dest=/etc/php-fpm.d/
-  notify:           restart php-fpm
-
-- name:             change ownership of wordpress installation
-  file:             path='{{ wp_install }}' owner=wordpress group=wordpress state=directory recurse=yes setype=httpd_sys_content_t
-  notify:           restart php-fpm
-
-- name:             download wp-cli
+- name: download wp-cli
   get_url:
-    url:            https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
-    dest:           /bin/wp
-    mode:           0775
+    url: https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+    dest: /bin/wp
+    mode: 0775

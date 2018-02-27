@@ -1,0 +1,42 @@
+---
+- include_vars:      secrets.yml
+- name: install epel-release
+  yum:  name=epel-release state=latest
+
+- name: install yum dependencies
+  yum:  name={{ item }} state=present
+  with_items: '{{ mysql_dependencies.yum }}'
+
+- name: install pip dependencies
+  pip: name={{ item }} state=present
+  with_items: '{{ mysql_dependencies.pip }}'
+
+- name: Add group "mysql"
+  group: name=mysql
+
+- name: Add user "mysql"
+  user: name=mysql group=mysql home=/srv/mysql/
+
+- name: copy mycnf
+  template:
+    src: my.cnf
+    dest: /etc/my.cnf
+
+- name: Start the mysql services
+  service: name=mysqld state=started enabled=yes
+
+- name: update mysql root password for all root accounts
+  mysql_user: name=root host={{ item }} password={{ mysql_root_password }}
+  with_items:
+   - "{{ ansible_hostname }}"
+   - 127.0.0.1
+   - ::1
+   - localhost
+  when: ansible_hostname != 'localhost'
+
+- name: Deletes anonymous MySQL server user for localhost
+  mysql_user: user="" state="absent" login_password="{{ mysql_root_password }}" login_user="root"
+
+- name: Removes the MySQL test database
+  sudo: True
+  mysql_db: db=test state=absent login_password="{{ mysql_root_password }}" login_user=root

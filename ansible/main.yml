@@ -1,12 +1,13 @@
 ---
-- name:        set up ec2
-  hosts:       localhost
+- name: set up ec2
+  hosts: [app] 
   roles:
     - aws
-- name:        run ansible
-  hosts:       ec2
+
+- name: Run ansible
+  hosts: ec2
   remote_user: ec2-user
-  become:      yes
+  become: yes
   become_user: root
   roles:
     - mysql

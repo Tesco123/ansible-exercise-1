@@ -18,7 +18,7 @@ wp_install: /srv/wordpress
 metaweather_woeid: 2379574
 
 # You shouldn't need to change this.
-mysql_port: 3306
+#mysql_port: 3306
 mysql_sock_dir: /srv/mysql
 mysql_sock_filename: mysql.sock
 
@@ -37,14 +37,26 @@ auto_up_disable: false
 #minor = Minor updates are enabled, development, and major updates are disabled
 core_update_level: true
 
-aws_amazon_linux_image: ami-643b1972
+aws_amazon_linux_image: ami-59f3c43c
 aws_image: '{{ aws_amazon_linux_image }}'
 aws_instance_type: t2.micro
-aws_region: us-east-1
+aws_region: us-east-2
+aws_vpc_id: vpc-1dde0275
 
 aws_dependencies:
   pip:
   - boto
+
+mysql_backups_dir: /var/mysql/backups
+mysql_character_set: utf8mb4
+mysql_collation: utf8mb4_unicode_520_ci
+mysql_conf_dir: /etc/mysql/conf.d
+mysql_container_name: mysql
+mysql_env: {}
+mysql_lib_dir: /var/mysql/lib
+mysql_network: mysql
+mysql_port: 3306
+mysql_state: started
 
 mysql_dependencies:
   yum:
